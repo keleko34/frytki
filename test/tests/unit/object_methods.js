@@ -1,59 +1,146 @@
-var standardProperties = (function(){
+var objectMethods = (function(){
   return function(describe,it,expect,spy,timer)
   {
-    var methods = [];
+    var methods = [
+      setsCorrectData,
+      firesEvents,
+      preventDataChange,
+    ];
     
-    function runCategory(method)
+    function getExampleData()
     {
-      var __arguments = Arra.prototype.slice.call(arguments).splice(0,1);
+      return {
+        test: "hello",
+        me: {
+          name: "tester",
+          age: 50,
+          likes: [
+            "frytki",
+            "stuff"
+          ]
+        },
+        help: function(){},
+        isHelp: true
+      }
+    }
+    
+    function runCategory(method, compare, listener)
+    {
+      var __arguments = Array.prototype.slice.call(arguments).slice(3);
       
       describe(method+':', function(){
-        // trackTestTime.call(this,key);
         
-        for(var x=0,len=methods.length,perf,el;x<len;x++)
+        for(var x=0,len=methods.length;x<len;x++)
         {
-          methods[x](method,arguments);
+          methods[x](method, compare, listener, __arguments);
         }
       });
     }
     
-    function getLayer(obj, key)
+    function setsCorrectData(method, compare, listener, args)
     {
-      var __scopeArray = key.split('.'),
-          __retObj = obj,
-          __len = __scopeArray.length,
-          __x = 0;
-
-      for(__x;__x<(__len - 1);__x++)
-      {
-        if(typeof __retObj[__scopeArray[__x]] === 'object') __retObj = __retObj[__scopeArray[__x]];
-      }
-
-      return __retObj;
+      it("Should properly set the data",function(done){
+        var data = frytki(getExampleData());
+        data[method].apply(data, args);
+        
+        var outputCompare = JSON.stringify(compare),
+            outputData = JSON.stringify(data);
+        
+        expect(outputData).to.equal(outputCompare);
+        done();
+      });
     }
     
-    function returnsCorrectValue(method, arguments)
+    function firesEvents(method, compare, listener, args)
     {
+      it("Should properly fire the events associaed with said data",function(done){
+        var data = frytki(getExampleData()),
+            cb = spy();
+        
+        data.addEventListener(listener,cb);
+        data[method].apply(data, args);
+        
+        expect(cb.callCount).to.equal(1);
+        done();
+      });
+    }
+    
+    function preventDataChange(method, compare, listener, args)
+    {
+      it("Should allow preventing the changes of the data",function(done){
+        var data = frytki(getExampleData());
+        
+        data.addEventListener('*', function(e){ e.preventDefault(); });
+        data[method].apply(data, args);
+        
+        var outputCompare = JSON.stringify(frytki(getExampleData())),
+            outputData = JSON.stringify(data);
+        
+        expect(outputData).to.equal(outputCompare);
+        done();
+      });
+    }
+    
+    describe("Object Methods",function(){
       
-    }
-    
-    function setsCorrectData(method, arguments)
-    {
-       
-    }
-    
-    function firesEvents(method, arguments)
-    {
+      runCategory('set',{
+        test: "hello",
+        me: 'goodbye',
+        help: function(){},
+        isHelp: true
+      }, 'me', 'me','goodbye');
       
-    }
-    
-    function bypassBlocksEvents(method, arguments)
-    {
+      runCategory('setPointer',{
+        test: "hello",
+        me: {
+          name: "tester",
+          age: 50,
+          likes: {
+            "0": "frytki",
+            "1": "stuff"
+          }
+        },
+        help: function(){},
+        isHelp: true,
+        extra: 'cool'
+      }, 'extra', 'extra',frytki({
+        stuff: 'cool'
+      }), 'stuff');
       
-    }
-    
-    describe("Object Method 1:",function(){
-
+      runCategory('remove',{
+        test: "hello",
+        help: function(){},
+        isHelp: true
+      }, 'me', 'me');
+      
+      runCategory('del',{
+        test: "hello",
+        help: function(){},
+        isHelp: true
+      }, 'me', 'me');
+      
+      runCategory('move',{
+        test: "hello",
+        me: 'goodbye',
+        help: function(){},
+        isHelp: true
+      }, 'me', { me: 'goodbye' }, 'me');
+      
+      runCategory('copy',{
+        test: "hello",
+        me: 'goodbye',
+        help: function(){},
+        isHelp: true
+      }, 'me', { me: 'goodbye' }, 'me');
+      
+      runCategory('merge',{
+        test: "hello",
+        me: 'goodbye',
+        help: function(){},
+        isHelp: true,
+        greeting: 'hello'
+      }, 'me', { me: 'goodbye', greeting: 'hello' });
+      
     });
   }
 }());

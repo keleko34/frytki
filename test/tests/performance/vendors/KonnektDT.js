@@ -1,6 +1,5 @@
-define([],function(){
-  function CreateKonnektDT(data,name,parent,scope)
-  {
+function CreateKonnektDT(data,name,parent,scope)
+{
     var _events = {
           "set":[],
           "postset":[],
@@ -1877,5 +1876,3 @@ define([],function(){
 
     return Mixed;
   }
-  return CreateKonnektDT;
-});

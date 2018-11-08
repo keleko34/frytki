@@ -6,6 +6,7 @@ var arrayMethods = (function(){
       setsCorrectData,
       firesEvents,
       preventDataChange,
+      bypassBlocksEvents,
     ];
     
     function runCategory(method, data)
@@ -52,7 +53,7 @@ var arrayMethods = (function(){
             custom[method].apply(custom, args);
         var outputOriginal = JSON.stringify(Object.assign({}, dt)),
             outputCustom = JSON.stringify(Object.assign({}, custom));
-
+        expect(custom.length).to.equal(dt.length);
         expect(outputCustom).to.equal(outputOriginal);
         done();
       });
@@ -87,7 +88,19 @@ var arrayMethods = (function(){
     
     function bypassBlocksEvents(method, data, args)
     {
-      
+      it("If a bypass method is used the bypass should be fired instead of atached events",function(done){
+        var custom = frytki(JSON.stringify(data)),
+            cb = spy(),
+            bypass = spy();
+        
+        custom.__frytkiExtensions__.bypass =  bypass;
+        
+        custom.addEventListener(((method !== 'push' && method !== 'pop') ? '0' : custom.length - (method === 'pop' ? 1 : 0)), cb);
+        custom[method].apply(custom, args);
+        expect(cb.callCount).to.equal(0);
+        expect(bypass.callCount).to.equal(1);
+        done();
+      });
     }
     
     describe("Array methods",function(){

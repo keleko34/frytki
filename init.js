@@ -7,6 +7,10 @@
   - combine arrays and objects as one type `MIXED`
 */
 
+/* TODO
+    Reverse descriptorStandard to normal, rescope modify structures to individual array methods
+*/
+
 "use strict";
 
 window.frytki = (function(){
@@ -24,7 +28,9 @@ window.frytki = (function(){
   ],
       
   /* allows listening for all changes no matter what it is */
-  __all__ = '*';
+  __all__ = '*',
+      
+  __isJSON__ = /(\{.*\:.*)|(\{\})|(\[.*,.*)|(\[\])/;
   
   /* SCOPED LOCALS */
   /* ENDREGION */
@@ -35,9 +41,8 @@ window.frytki = (function(){
   var __slice = Array.prototype.slice,
       __sort = Array.prototype.sort,
       __splice = Array.prototype.splice,
-      __shift = Array.prototype.shift,
       __reverse = Array.prototype.reverse,
-      __pop = Array.prototype.pop,
+      __copyWithin = Array.prototype.copyWithin,
       __toString = Object.prototype.toString,
       __typeof = (function(){
         
@@ -52,7 +57,7 @@ window.frytki = (function(){
         var __getKeys = Object.keys;
         
         return function(obj, type){
-          return __getKeys(obj)
+          return __getKeys((obj || this))
           .filter(function(v){
             if(__blocked__.indexOf(v) !== -1) return false;
             if(!type) return true;
@@ -119,13 +124,16 @@ window.frytki = (function(){
     /* the name of the property */
     this.attr = attr;
     
+    /* the name of the property */
+    this.key = attr;
+    
     /* passed arguments if the property was a method */
     this.arguments = args;
     
     /* the returned result of running that method (update only) */
     this.action = action;
     
-    /* the original element that fired the event */
+    /* the original object that fired the event */
     this.srcObject = srcObject;
     
     /* the name of the listener, can be: `set`, `update`, `create`, `delete` */
@@ -202,6 +210,9 @@ window.frytki = (function(){
     
     /* allows bypassing length set and updates events */
     this.lengthSet = lengthSet;
+    
+    /* locale of all descriptors */
+    this.descriptors = {};
   }
   
   /* OBJECT CLASSES */
@@ -281,6 +292,38 @@ window.frytki = (function(){
   {
     var keys = __keys(obj, 'array');
     return (parseInt(keys[(keys.length - 1)], 10) + 1);
+  }
+  
+  function filterModified(obj, key, ext)
+  {
+    var __extensions = ext,
+        __desc = __extensions.descriptors[key],
+        __val = __desc.value,
+        __oldVal = __desc.oldValue,
+        __state = (__val === undefined ? 'delete' : (__oldVal === undefined ? 'create' : 'set'));
+    
+    if(_setStandard(obj, __state, key, __val, __oldVal, __extensions, __extensions.stop))
+    {
+      if(__state === 'create') Object.defineProperty(obj, key, descriptorStandard(key, __val, __extensions));
+      if(__state === 'delete') __extensions.descriptors[key] = undefined;
+      if(!__extensions.stop) _updateStandard(obj, __state, key, __val, __oldVal, __extensions);
+    }
+    else if(__state !== 'create')
+    {
+      if(__state === 'delete')
+      {
+        Object.defineProperty(obj, key, descriptorStandard(key, __oldVal, __extensions));
+      }
+      else
+      {
+        __desc.value = __oldVal;
+      }
+    }
+    else
+    {
+      Object.defineProperty(obj, key, descriptorHidden(undefined));
+      __extensions.descriptors[key] = undefined;
+    }
   }
   
   /* EVENT HELPER METHODS */
@@ -441,80 +484,106 @@ window.frytki = (function(){
     }
   }
   
-  function descriptorStandard(key, value, extensions)
+  function descriptorStandard(key, value, extensions, initial)
   {
+    extensions.descriptors[key] = {};
     /* closured descriptor, used methods and local var's for increased perf */
-    var __key = key,
+    var __extensions = extensions,
+        __descriptor = __extensions.descriptors[key],
+        __lengthSet = __extensions.lengthSet,
+        __key = key,
         __isIndex = isIndex(key),
         __update = _updateStandard,
         __set = _setStandard,
-        __extensions = extensions,
-        __value = value,
-        __oldValue,
         __debounce = false,
+        __notDefined,
         __state;
+    
+    __descriptor.key = __key;
+    __descriptor.value = value;
+    __descriptor.oldValue = (initial ? value : undefined);
     
     function set(v)
     {
-      /* fanciness for array methods that mutate the array, need to reiterate for change updates */
-      __state = (__oldValue === undefined ? 'create' : (v === undefined ? 'delete' : 'set'));
-      
-      /* isModifying set pre mutate methods, debounce gets set */
-      if(__extensions.isModifying && __debounce)
+      __notDefined = (v === undefined);
+      /* Modify Section */
+      if(__extensions.isModifying && __debounce) 
       {
-        __value = v;
-        
-        if(__state === 'delete')
+        if(__notDefined)
         {
-          Object.defineProperty(this,__key,descriptorHidden(undefined));
-          if(__isIndex) __extensions.lengthSet(getLength(this), true);
+          Object.defineProperty(this, __key, descriptorHidden(undefined));
+          __descriptor.value = v
+          return !(__isIndex ? __lengthSet.call(this, getLength(this), true) : false);
         }
-        return true;
-      }
-
-      if(__extensions.isModifying && !__debounce) 
-      {
-        __oldValue = __value;
-        __debounce = true;
-        __value = v;
-        if(__state === 'delete')
-        {
-          Object.defineProperty(this,__key,descriptorHidden(undefined));
-          if(__isIndex) __extensions.lengthSet(getLength(this), true);
-        }
-        
-        if(__state === 'create' && __isIndex) __extensions.lengthSet(getLength(this), true);
-        return true;
+        return !!(__descriptor.value = v);
       }
       
-      /* after isModifying is turned off and a set happens, oldValue will show proper value before mutate for set */
-      if(!__debounce) __oldValue = __value;
+      if(__extensions.isModifying && !__debounce)
+      {
+        if(__notDefined)
+        {
+          Object.defineProperty(this, __key, descriptorHidden(undefined));
+          __debounce = true;
+          __descriptor.value = v;
+          return !(__isIndex ? __lengthSet.call(this, getLength(this), true) : false);
+        }
+        return !!(__debounce = true, __descriptor.value = v);
+      }
+      
+      __state = (__notDefined ? 'delete' : 'set');
       
       /* run the pre value set listeners */
-      if(__set(this,__state,__key,v,__oldValue,__extensions,__extensions.stop))
-      {
-        /* if the default was not prevented, set the value */
-        __value = v;
+      if(__set(this,__state,__key,v,__descriptor.value,__extensions,__extensions.stop))
+      {      
+        
+        if(!__debounce) __descriptor.oldValue = __descriptor.value;
         
         /* delete needs to be made hidden */
-        if(__state === 'delete')
+        if(__notDefined)
         {
-          Object.defineProperty(this,__key,descriptorHidden(undefined));
-          if(__isIndex) __extensions.lengthSet(getLength(this), true);
+          Object.defineProperty(this, __key, descriptorHidden(undefined));
+          if(__isIndex) __lengthSet.call(this, getLength(this), true);
+          
+          if(!__extensions.stop) __update(this,__state,__key,v,__descriptor.oldValue,__extensions);
+          __extensions.stop = undefined;
+          __debounce = false;
+          
+          this.__frytkiExtensions__.descriptors[__key] = undefined;
+          __descriptor = undefined;
+          __extensions = undefined;
+          
+          return true;
         }
-        else if(__state === 'create' && __isIndex) __extensions.lengthSet(getLength(this), true);
+        else
+        {
+          /* if the default was not prevented, set the value */
+          __descriptor.value = v;
+        }
         
         /* if update listeners were not stopped run them */
-        if(!__extensions.stop) __update(this,__state,__key,v,__oldValue,__extensions);
+        if(!__extensions.stop) __update(this,__state,__key,v,__descriptor.oldValue,__extensions);
       }
-      /* if a new value being created is rejected, then reset to hidden undefined */
-      else if(__oldValue === undefined)
+      else if(__debounce)
       {
-        Object.defineProperty(this,__key,descriptorHidden(undefined));
-        if(__isIndex) __extensions.lengthSet(getLength(this), true);
+        __descriptor.value = __descriptor.oldValue;
+        if(__descriptor.oldValue === undefined)
+        {
+          Object.defineProperty(this, __key, descriptorHidden(undefined));
+          if(__isIndex) __lengthSet.call(this, getLength(this), true);
+          
+          /* reset update stop */
+          __extensions.stop = undefined;
+          __debounce = false;
+          if(__notDefined)
+          {
+            this.__frytkiExtensions__.descriptors[__key] = undefined;
+            __descriptor = undefined;
+            __extensions = undefined;
+          }
+          
+          return true;
+        }
       }
-      /* if a debounce is rejected or a delete property was rejected, reset the value */
-      else if(__debounce || v === undefined) __value = __oldValue;
       
       /* reset update stop */
       __extensions.stop = undefined;
@@ -522,7 +591,7 @@ window.frytki = (function(){
     }
     
     return {
-      get: function(){ return __value; },
+      get: function(){ return __descriptor.value; },
       set:set,
       enumerable: true,
       configurable: true
@@ -624,9 +693,7 @@ window.frytki = (function(){
   
   function isJSON(str)
   {
-    try { JSON.parse(str); }
-    catch (e) { return false; }
-    return true;
+    return !!(str.match(__isJSON__))
   }
   
   function isIndex(key)
@@ -737,7 +804,9 @@ window.frytki = (function(){
         currKey = '',
         prevKey = '',
         futureKey = '',
-        UKey;
+        UKey,
+        k,
+        v;
     
     function parseValue(val)
     {
@@ -779,8 +848,15 @@ window.frytki = (function(){
       if((prevKey === '":' && currKey === '{"') || (prevKey === '":' && currKey === '['))
       {
         scope += (!scope.length ? '' : '.') + UKey;
-        if(!layer.get(UKey)) layer.set(UKey,(func ? func(UKey,{},scope,layer) : {}));
-        layer = layer.get(UKey);
+        
+        /* creating a new property */
+        if(!layer.get(UKey))
+        {
+          v = (func ? Frytki(func(k,{},scope,layer),extensions.ref, scope, layer, extensions.hash) : Frytki({},extensions.ref, scope, layer, extensions.hash));
+          Object.defineProperty(layer, UKey, descriptorStandard(UKey, v, extensions, true));
+          if(isIndex(UKey)) extensions.lengthSet.call(layer, getLength(layer), true);
+        }
+        layer = layer[UKey];
         extensions = layer.__frytkiExtensions__;
         UKeys.pop();
       }
@@ -788,17 +864,41 @@ window.frytki = (function(){
       /* we have an array index */
       else if(prevKey === '[' || (prevKey === ',' && layer.length !== 0))
       {
+        /* we have an inner Object */
         if(currKey === '{' || currKey === '{"')
         {
           scope += (scope.length !== 0 ? '.' : '') + extensions.setIndex;
-          if(typeof layer.get(extensions.setIndex) !== 'object') layer.set(extensions.setIndex,(func ? func(layer.length,{},scope,layer) : {}));
+          if(typeof layer[extensions.setIndex] !== 'object')
+          {
+            if(!layer[extensions.setIndex])
+            {
+              k = extensions.setIndex;
+              v = (func ? Frytki(func(k,{},scope,layer),extensions.ref, scope, layer, extensions.hash) : Frytki({},extensions.ref, scope, layer, extensions.hash));
+              Object.defineProperty(layer, k, descriptorStandard(k, v, extensions, true));
+              extensions.lengthSet.call(layer, getLength(layer), true);
+            }
+            else
+            {
+              layer.set(extensions.setIndex,(func ? func(layer.length,{},scope,layer) : {}));
+            }
+          }
           extensions.setIndex += 1;
-          layer = layer.get(extensions.setIndex-1);
+          layer = layer[(extensions.setIndex-1)];
           extensions = layer.__frytkiExtensions__;
         }
         else
         {
-          layer.set(extensions.setIndex,(func ? func(layer.length,parseValue(currKey),scope,layer) : parseValue(currKey)));
+          if(!layer[extensions.setIndex])
+          {
+            k = extensions.setIndex;
+            v = (func ? func(k,parseValue(currKey),scope,layer) : parseValue(currKey))
+            Object.defineProperty(layer, k, descriptorStandard(k, v, extensions, true));
+            extensions.lengthSet.call(layer, getLength(layer), true);
+          }
+          else
+          {
+            layer.set(extensions.setIndex,(func ? func(layer.length,parseValue(currKey),scope,layer) : parseValue(currKey)));
+          }
           extensions.setIndex += 1;
         }
       }
@@ -806,7 +906,16 @@ window.frytki = (function(){
       /* we have a value */
       else if(prevKey === '":')
       {
-        layer.set(UKey,(func ? func(UKey,parseValue(currKey),scope,layer) : parseValue(currKey)));
+        if(!layer[UKey])
+        {
+          k = UKey;
+          v = (func ? func(k,parseValue(currKey),scope,layer) : parseValue(currKey))
+          Object.defineProperty(layer, k, descriptorStandard(k, v, extensions, true));
+        }
+        else
+        {
+          layer.set(UKey,(func ? func(UKey,parseValue(currKey),scope,layer) : parseValue(currKey)));
+        }
         UKeys.pop();
       }
 
@@ -848,45 +957,59 @@ window.frytki = (function(){
   {
     var __layer = getLayer(this, key),
         __key = getKey(key),
-        __extensions = __layer.__frytkiExtensions__;
+        __extensions = __layer.__frytkiExtensions__,
+        __isModifying = __extensions.isModifying;
     
     if(val && typeof val === 'object' && __typeof(val) !== 'Frytki')
     {
       val = Frytki(val, __extensions.base, __extensions.scope + (!__extensions.scope.length ? '' : '.') + __key, __layer, __extensions.hash);
     }
     
-    if(!__layer[key] || create)
+    if((!__layer[key] || create))
     {
-      Object.defineProperty(__layer,__key,descriptorStandard(__key, undefined, __extensions));
+      if(!__isModifying)
+      {
+        if(_setStandard(this,'create',__key,val,undefined,__extensions,__extensions.stop))
+        {
+          Object.defineProperty(__layer,__key,descriptorStandard(__key, val, __extensions));
+          if(isIndex(__key)) __extensions.lengthSet.call(this, getLength(this), true);
+          if(!__extensions.stop) _updateStandard(this, 'create', __key, val, undefined, __extensions);
+        }
+      }
+      else
+      {
+        Object.defineProperty(__layer,__key,descriptorStandard(__key, val, __extensions));
+      }
     }
-    
-    __layer[__key] = val;
+    else
+    {
+      this[__key] = val;
+    }
     return this;
   }
   
-  /* needs reworked to fit set standard descriptor */
-  function setPointer(key, fromKey, parent)
+  function setPointer(key, parent, fromKey)
   {
     var __layer = getLayer(this, key),
         __key = getKey(key),
         __extensions = __layer.__frytkiExtensions__;
     
     /* fire create event */
-    if(_setStandard(__layer,(!__layer[__key] ? 'create' : 'set'),__key, (fromKey ? parent[fromKey] : parent),'undefined',__extensions, __extensions.stop))
+    if(_setStandard(__layer,(!__layer[__key] ? 'create' : 'set'),__key, (fromKey ? parent[fromKey] : parent),__layer[__key],__extensions, __extensions.stop))
     {
-      Object.defineProperty(__layer,__key, (fromKey ? descriptorPointer(fromKey, parent) : descriptorStandard(__key, parent, __extensions)));
+      Object.defineProperty(__layer,__key, (fromKey ? descriptorPointer(parent, fromKey) : descriptorStandard(__key, parent, __extensions)));
       
-      if(isIndex(__key))
-      {
-        var keys =  __keys(__layer,'array');
-        __extensions.lengthSet.call(__layer, (parseInt(keys[(keys.length - 1)], 10) + 1), true);
-      }
+      if(isIndex(__key)) __extensions.lengthSet.call(__layer, getLength(this), true);
          
-      if(!__extensions.stop) _updateStandard(__layer, (!__layer[__key] ? 'create' : 'set'), __key, 'undefined', __extensions);
+      if(!__extensions.stop) _updateStandard(__layer, (!__layer[__key] ? 'create' : 'set'), __key, (fromKey ? parent[fromKey] : parent),__layer[__key],__extensions);
       __extensions.pointers[__key] = {key:fromKey,parent:parent};
     }
-    
     return this;
+  }
+  
+  function addPointer()
+  {
+    return this.setPointer.apply(this, arguments);
   }
   
   function remove(key)
@@ -927,9 +1050,6 @@ window.frytki = (function(){
   function merge(obj)
   {
     var __objectTypes = __ObjectTypes__,
-        __keys,
-        __len,
-        __x,
         __cacheFrom = [],
         __cacheTo = [],
         __cacheIndex;
@@ -938,7 +1058,10 @@ window.frytki = (function(){
     
     function recMerge(from, to)
     {
-      var __key;
+      var __key,
+          __keys,
+          __len,
+          __x;
       
       __keys = Object.keys(from);
       __len = __keys.length;
@@ -977,6 +1100,75 @@ window.frytki = (function(){
     return this; 
   }
 
+  function findKey(key)
+  {
+    var __objectTypes = __ObjectTypes__,
+        __cache = [],
+        __cacheIndex;
+    
+    function recv(obj)
+    {
+      var __keys = Object.keys(obj),
+          __x = 0,
+          __len = __keys.length,
+          __key,
+          __found;
+      
+      for(__x;__x<__len;__x++)
+      {
+        __key = __keys[__x];
+        if(__key === key) return obj[__key];
+        if(__objectTypes.indexOf(__typeof(obj[__key])) !== -1)
+        {
+          __cacheIndex = __cache.indexOf(obj[__key]);
+          if(__cacheIndex === undefined)
+          {
+            __cache.push(obj[__key]);
+            __found = recv(obj[__key]);
+            
+            if(__found) return __found;
+          }
+        }
+      }
+    }
+    return recv(this);
+  }
+  
+  function findLayer(key)
+  {
+    var __objectTypes = __ObjectTypes__,
+        __cache = [],
+        __cacheIndex;
+    
+    function recv(obj)
+    {
+      var __keys = Object.keys(obj),
+          __x = 0,
+          __len = __keys.length,
+          __key,
+          __found;
+      
+      for(__x;__x<__len;__x++)
+      {
+        __key = __keys[__x];
+        if(__key === key) return obj;
+        if(__objectTypes.indexOf(__typeof(obj[__key])) !== -1)
+        {
+          __cacheIndex = __cache.indexOf(obj[__key]);
+          if(__cacheIndex === undefined)
+          {
+            __cache.push(obj[__key]);
+            __found = recv(obj[__key]);
+            
+            if(__found) return __found;
+          }
+        }
+      }
+    }
+    
+    return recv(this);
+  }
+  
   function valueOf()
   {
     var obj = {},
@@ -999,14 +1191,14 @@ window.frytki = (function(){
         __stringObj = {},
         __cache = [],
         __cacheName = [],
-        __cacheIndex = 0,
-        __keys,
-        __len,
-        __x;
+        __cacheIndex = 0;
     
     function recJSON(from, to)
     {
-      var __key;
+      var __key,
+          __keys,
+          __len,
+          __x;
       
       __keys = Object.keys(from);
       __len = __keys.length;
@@ -1047,7 +1239,7 @@ window.frytki = (function(){
   /* ARRAY METHODS */
   /* REGION */
   
-  /* sort is ok to do a reset, all items will have changed */
+  /* sort is ok to do a reset, all items will have changed */ //GOOD
   function sort(func)
   {
     var __extensions = this.__frytkiExtensions__,
@@ -1064,7 +1256,7 @@ window.frytki = (function(){
     
       for(__i;__i<__len;__i++)
       {
-        this[__i] = this[__i];
+        filterModified(this, __i, __extensions);
       }
     }
     return __return;
@@ -1081,8 +1273,7 @@ window.frytki = (function(){
         __i = 0,
         __len,
         __return = [],
-        __del = [],
-        __delIndex;
+        __del = [];
     
     __extensions.isModifying = true;
     if(remove !== 0)
@@ -1127,18 +1318,18 @@ window.frytki = (function(){
         this.del(__del[__x]);
       }
     }
-    
     __extensions.isModifying = false;
     
     __x = index;
-    __len = ((__insertLen && __insertLen === remove) ? (index + __insertLen) : this.length)
+    __len = ((__insertLen && __insertLen === remove) ? (index + __insertLen) : (this.length + (Math.max(__insertLen - remove,0))));
     if(typeof __extensions.bypass !== 'function' || __extensions.bypass(__x,__len))
     {
       for(__x;__x<__len;__x++)
       {
-        this[__x] = this[__x];
+        filterModified(this, __x, __extensions);
       }
     }
+    __extensions.lengthSet.call(this, getLength(this), true);
     return __return;
   }
   
@@ -1155,16 +1346,17 @@ window.frytki = (function(){
       this[__x] = this[(__x + 1)]
     }
     __extensions.isModifying = false;
-    if(typeof __extensions.bypass !== 'function' || __extensions.bypass())
+    __lenAr = (this.length + 1);
+    if(typeof __extensions.bypass !== 'function' || __extensions.bypass(0, __lenAr))
     {
-      var __i = 0,
-          __len = (this.length + 1);
+      var __i = 0;
     
-      for(__i;__i<__len;__i++)
+      for(__i;__i<__lenAr;__i++)
       {
-        this[(this[__i] !== undefined ? 'set' : 'del')](__i,this[__i]);
+        filterModified(this, __i, __extensions);
       }
     }
+    __extensions.lengthSet.call(this, getLength(this), true);
     return __return;
   }
   
@@ -1173,8 +1365,7 @@ window.frytki = (function(){
     var __extensions = this.__frytkiExtensions__,
         __inserts = __slice.call(arguments),
         __lenInserts = __inserts.length,
-        __x = ((this.length - 1) + __lenInserts),
-        __set = [];
+        __x = ((this.length - 1) + __lenInserts);
     
     __extensions.isModifying = true;
     for(__x;__x!==-1;__x--)
@@ -1185,29 +1376,22 @@ window.frytki = (function(){
       }
       else
       {
-        if(this[__x] !== undefined) __set.push(__x);
         this.set(__x,this[(__x - __inserts.length)]);
       }
     }
     __extensions.isModifying = false;
     
-    if(typeof __extensions.bypass !== 'function' || __extensions.bypass())
+    if(typeof __extensions.bypass !== 'function' || __extensions.bypass(0, (this.length + __lenInserts)))
     {
       var __i = 0,
-          __len = this.length;
+          __len = (this.length + __lenInserts);
     
       for(__i;__i<__len;__i++)
       {
-        if(__set.indexOf(__i) !== -1)
-        {
-          this[__i] = this[__i];
-        }
-        else 
-        {
-          this.set(__i, this[__i], true);
-        }
+        filterModified(this, __i, __extensions);
       }
     }
+    __extensions.lengthSet.call(this, getLength(this), true);
     return this.length;
   }
   
@@ -1218,10 +1402,11 @@ window.frytki = (function(){
     __extensions.isModifying = true;
     this.set(this.length,v);
     __extensions.isModifying = false;
-    if(typeof __extensions.bypass !== 'function' || __extensions.bypass((this.length - 1), this.length))
+    if(typeof __extensions.bypass !== 'function' || __extensions.bypass(this.length, (this.length + 1)))
     {
-      this.set((this.length - 1), this[(this.length - 1)], true);
+      filterModified(this, this.length, __extensions);
     }
+    __extensions.lengthSet.call(this, getLength(this), true);
     return this.length;
   }
   
@@ -1231,12 +1416,14 @@ window.frytki = (function(){
         __return;
     
     __extensions.isModifying = true;
-    __return = __pop.call(this);
+    __return = this[(this.length - 1)];
+    this[(this.length - 1)] = undefined;
     __extensions.isModifying = false;
-    if(typeof __extensions.bypass !== 'function' || __extensions.bypass(this.length, (this.length + 1)))
+    if(typeof __extensions.bypass !== 'function' || __extensions.bypass((this.length), (this.length + 1)))
     {
-      this.del(this.length);
+      filterModified(this, (this.length), __extensions);
     }
+    __extensions.lengthSet.call(this, getLength(this), true);
     return __return;
   }
   
@@ -1255,7 +1442,7 @@ window.frytki = (function(){
     
       for(__i;__i<__len;__i++)
       {
-        this[__i] = this[__i];
+        filterModified(this, __i, __extensions);
       }
     }
     return __return;
@@ -1267,13 +1454,11 @@ window.frytki = (function(){
     to = ((to !== undefined && to <= this.length) ? Math.min(this.length,Math.max(0,to)) : this.length);
     
     var __extensions = this.__frytkiExtensions__,
-        __x = from,
-        __set = [];
+        __x = from;
     
     __extensions.isModifying = true;
     for(__x;__x<to;__x++)
     {
-      if(this[__x] !== undefined) __set.push(__x);
       this.set(__x, val);
     }
     __extensions.isModifying = false;
@@ -1284,42 +1469,20 @@ window.frytki = (function(){
     
       for(__i;__i<__len;__i++)
       {
-        if(__set.indexOf(__i) !== -1)
-        {
-          this[__i] = this[__i]
-        }
-        else
-        {
-          this.set(__i, this[__i], true);
-        }
+        filterModified(this, __i, __extensions);
       }
     }
+    __extensions.lengthSet.call(this, getLength(this), true);
     return this;
   }
   
   function copyWithin(target, from, to)
-  {
-    from = (from || 0);
-    to = (to || 0);
-    
+  { 
     var __extensions = this.__frytkiExtensions__,
-        __x,
         __return;
     
     __extensions.isModifying = true;
-    if(target < this.length)
-    {
-      target = (target < 0 ? (this.length-1) : target);
-      from = (from < this.length ? from : (this.length-1));
-      to = (to < this.length ? to : (this.length-1));
-      from = (from < 0 ? (this.length-1) : from);
-      to = (from < 0 ? (this.length-1) : to);
-      __x = from;
-      for(__x;__x<=to;__x++)
-      {
-        this[(target + (__x - from))] = this[__x];
-      }
-    }
+    if(target < this.length) __return = __copyWithin.call(this,target, from, to);
     __extensions.isModifying = false;
     if(typeof __extensions.bypass !== 'function' || __extensions.bypass(target, (target + (!to ? 1 : to - from))))
     {
@@ -1328,18 +1491,22 @@ window.frytki = (function(){
       
       for(__i;__i<__len;__i++)
       {
-        this[__i] = this[__i];
+        filterModified(this, __i, __extensions);
       }
     }
+    __extensions.lengthSet.call(this, getLength(this), true);
     return __return;
   }
   
   /* ARRAY METHODS */
   /* ENDREGION */
   
+  /* CONSTRUCTOR */
+  /* REGION */
+  
   /* used as a class, `new frytki({})` */
   function Frytki(obj, base, scope, parent, hash)
-  { 
+  {
     var __obj = (obj || {}),
         __hash = (hash || (Math.random() * Date.now()).toFixed(0)),
         /* this allows us to overwrite the length property on an array while otherwise it's non configurable */
@@ -1352,7 +1519,8 @@ window.frytki = (function(){
         __len = __childKeys.length,
         __key = '',
         __lengthDescriptor = descriptorLength(0),
-        __lengthSet = __lengthDescriptor.set;
+        __lengthSet = __lengthDescriptor.set,
+        __newObject;
     
     Object.defineProperties(__ref, {
       __frytkiExtensions__: descriptorHiddenSetter(new localBinders(__hash, __ref, __base, __scope, __parent, __lengthSet)),
@@ -1370,11 +1538,12 @@ window.frytki = (function(){
         if(isIndex(__key)) __lengthSet.call(__ref, (__ref.length + 1), true); // need to bypass length descriptor for direct support/faster
         if(typeof obj[__key] === 'object')
         {
-          Object.defineProperty(__ref, __key,descriptorStandard(__key, Frytki(obj[__key], __base, (__scope + (!__scope.length ? '' : '.') + __key), __ref, __hash), __ref.__frytkiExtensions__));
+          __newObject = Frytki(obj[__key], __base, (__scope + (!__scope.length ? '' : '.') + __key), __ref, __hash);
+          Object.defineProperty(__ref, __key,descriptorStandard(__key, __newObject, __ref.__frytkiExtensions__, true));
         }
         else
         {
-          Object.defineProperty(__ref, __key,descriptorStandard(__key, __obj[__key], __ref.__frytkiExtensions__));
+          Object.defineProperty(__ref, __key,descriptorStandard(__key, __obj[__key], __ref.__frytkiExtensions__, true));
         }
       }
     }
@@ -1386,6 +1555,7 @@ window.frytki = (function(){
     return __ref;
   }
   
+  /* prototype extensions of all defined public methods */
   Object.defineProperties(Frytki.prototype, {
     
     /* Methods */
@@ -1410,10 +1580,12 @@ window.frytki = (function(){
     remove:descriptorHidden(remove),
     create:descriptorHidden(create),
     add:descriptorHidden(add),
+    addPointer:descriptorHidden(addPointer),
     move:descriptorHidden(move),
     copy:descriptorHidden(copy),
     merge:descriptorHidden(merge),
-    
+    findKey:descriptorHidden(findKey),
+    findLayer:descriptorHidden(findLayer),
     /* ARRAY */
     
     /* Non destructive Array methods */
@@ -1450,6 +1622,17 @@ window.frytki = (function(){
     copyWithin:descriptorHidden(copyWithin)
   })
   
+  Object.defineProperties(Frytki, {
+    typeof:descriptorHidden(__typeof),
+    keys:descriptorHidden(__keys),
+    isObject:descriptorHidden(isObject),
+    isArray:descriptorHidden(isArray),
+    isJSON:descriptorHidden(isJSON),
+    parse:descriptorHidden(parse)
+  });
+  
+  /* ENDREGION */
+  
   /* AMD AND COMMONJS COMPATABILITY */
   /* REGION */
   
@@ -1463,4 +1646,4 @@ window.frytki = (function(){
   /* ENDREGION */
   
   return Frytki;
-}())
+}());

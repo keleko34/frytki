@@ -67,7 +67,9 @@ function trackTestTime(key)
 
 (function(describe,it,expect,spy){
   /* mocha tests */
-  standardProperties(describe,it,expect,spy,timer);
-  arrayMethods(describe,it,expect,spy,timer);
+  standardProperties(describe,it,expect,spy);
+  arrayMethods(describe,it,expect,spy);
+  objectMethods(describe,it,expect,spy);
+  pointers(describe,it,expect,spy)
   mocha.run();
 }(describe,it,chai.expect,sinon.spy));
