@@ -13,7 +13,22 @@
     </div>
     <div class="performance">
       <div class="section"><a href="#tasks">Benchmark Tests</a></div>
-      <div id="tasks"></div>
+      <div id="tasks">
+        <iframe id="konnektdt-iframe"></iframe>
+        <script type="text/javascript">
+          var KBFrame = document.querySelector('#konnektdt-iframe'),
+              KBDocument = KBFrame.contentDocument || KBFrame.contentWindow.document,
+              KBWindow = KBFrame.contentWindow || KBFrame;
+
+          KBDocument.open();
+          KBDocument.write('<html><head><\/head><body><script type="text\/javascript" src="\/test\/tests\/performance\/vendors\/KonnektDT.js"><\/script><script type="text\/javascript">window.CreateKonnektDT = CreateKonnektDT;<\/script><\/body><\/html>');
+          KBDocument.close();
+
+        </script>
+        <iframe id="konnektdt-iframe">
+          <script type="text/javascript" src="/test/tests/performance/vendors/KonnektDT.js"></script>
+        </iframe>
+      </div>
     </div>
     <style>
       .test_subjects {
@@ -44,7 +59,6 @@
     <script type="text/javascript" src="/node_modules/sinon/pkg/sinon.js"></script>
     <script type="text/javascript" src="/node_modules/sinon-chai/lib/sinon-chai.js"></script>
     
-        
     <!-- unit tests -->
     <script type="text/javascript" src="/test/tests/unit/standard_properties.js"></script>
     <script type="text/javascript" src="/test/tests/unit/array_methods.js"></script>
@@ -52,7 +66,6 @@
     <script type="text/javascript" src="/test/tests/unit/pointers.js"></script>
     <script type="text/javascript" src="/test/tests/unit.js"></script>
     
-    <script type="text/javascript" src="/test/tests/performance/vendors/KonnektDT.js"></script>
     <script type="text/javascript" src="/test/tests/performance.js"></script>
   </body>
 </html>

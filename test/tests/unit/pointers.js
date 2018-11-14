@@ -14,7 +14,8 @@ var pointers = (function(){
           firesCorrectEvents,
           allowsBubbledListeners,
           removesPointerAndListener,
-          syncedPointervalues
+          syncedPointervalues,
+          removesPointer
         ];
     
     function runCategory(key, listener, subListener, fromKey)
@@ -166,6 +167,27 @@ var pointers = (function(){
         pointer[fromKey][listener] = 'what else';
         
         expect(custom[key][listener]).to.equal(pointer[fromKey][listener]);
+        done();
+      });
+    }
+    
+    function removesPointer(key, listener, subListener, fromKey)
+    {
+      it("Should correctly remove a pointer", function(done){
+        var custom = frytki(testObject),
+            pointer = getLayer(frytki(pointerObject), fromKey);
+        
+        fromKey = getKey(fromKey);
+        
+        custom.setPointer(key, pointer, fromKey);
+        
+        pointer[fromKey][listener] = 'what else';
+        
+        custom.removePointer(key);
+        
+        pointer[fromKey][listener] = 'something else';
+        
+        expect(custom[key]).to.equal(undefined);
         done();
       });
     }

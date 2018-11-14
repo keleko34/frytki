@@ -1,14 +1,5 @@
-/*
-  Need to handle:
-  - set, add and remove properties
-  - all mutatable array methods
-  - multidimensional arrays and objects
-  - json parsing
-  - combine arrays and objects as one type `MIXED`
-*/
-
 /* TODO
-    Reverse descriptorStandard to normal, rescope modify structures to individual array methods
+    
 */
 
 "use strict";
@@ -175,6 +166,9 @@ window.frytki = (function(){
     
     /* pointers located in this object */
     this.pointers = {};
+    
+    /* helps translate between parent and child pointer keys */
+    this.parentTranslatePointers = {};
     
     /* node's property listeners */
     this.attrListeners = {};
@@ -992,7 +986,9 @@ window.frytki = (function(){
   {
     var __layer = getLayer(this, key),
         __key = getKey(key),
-        __extensions = __layer.__frytkiExtensions__;
+        __extensions = __layer.__frytkiExtensions__,
+        __isParentObservable = (!!parent.__frytkiExtensions__),
+        __parentExtensions = parent.__frytkiExtensions__;
     
     /* fire create event */
     if(_setStandard(__layer,(!__layer[__key] ? 'create' : 'set'),__key, (fromKey ? parent[fromKey] : parent),__layer[__key],__extensions, __extensions.stop))
@@ -1002,7 +998,35 @@ window.frytki = (function(){
       if(isIndex(__key)) __extensions.lengthSet.call(__layer, getLength(this), true);
          
       if(!__extensions.stop) _updateStandard(__layer, (!__layer[__key] ? 'create' : 'set'), __key, (fromKey ? parent[fromKey] : parent),__layer[__key],__extensions);
-      __extensions.pointers[__key] = {key:fromKey,parent:parent};
+      
+      if(!__isParentObservable)
+      {
+        parent.__frytkiExtensions__ = {};
+        parent.__frytkiExtensions__.pointers = {};
+        parent.__frytkiExtensions__.parentTranslatePointers = {};
+        __parentExtensions = parent.__frytkiExtensions__;
+      }
+      
+      if(!__parentExtensions.pointers[fromKey])
+      {
+        parent.__frytkiExtensions__.pointers[fromKey] = {
+          key: undefined,
+          child: undefined,
+          original: parent,
+          parent: undefined
+        }
+      }
+      
+      __parentExtensions.pointers[fromKey].child = this;
+      
+      __extensions.pointers[__key] = {
+        key: fromKey,
+        child: undefined,
+        original: __parentExtensions.pointers[fromKey].original,
+        parent: parent
+      };
+      
+      __extensions.parentTranslatePointers[fromKey] = __key;
     }
     return this;
   }
@@ -1010,6 +1034,49 @@ window.frytki = (function(){
   function addPointer()
   {
     return this.setPointer.apply(this, arguments);
+  }
+  
+  /* TODO remove all child pointers when the link is broken */
+  function removeChildPointers(layer, fromKey)
+  {
+    var __layer = layer,
+        __fromKey = fromKey,
+        __extensions = __layer.__frytkiExtensions__,
+        __key = __extensions.parentTranslatePointers[__fromKey],
+        __pointer = __extensions.pointers[__key],
+        __parentExtensions = __pointer.parent;
+    
+    if(__pointer.child) removeChildPointers(__pointer.child, __key);
+    
+    Object.defineProperty(__layer, __key, descriptorHidden(undefined));
+    if(isIndex(__key)) __extensions.lengthSet.call(__layer, getLength(this), true);
+    
+    if(__parentExtensions.pointers[__fromKey]) __parentExtensions.pointers[__fromKey].child = undefined;
+    __extensions.pointers[__key] = undefined;
+  }
+  
+  function removePointer(key)
+  {
+	var __layer = getLayer(this, key),
+		__key = getKey(key),
+        __extensions = __layer.__frytkiExtensions__,
+		__pointer = __extensions.pointers[__key],
+        __parentExtensions = __pointer.parent.__frytkiExtensions__;
+		
+	/* fire delete event */
+    if(_setStandard(__layer,'delete',__key, (__pointer.key ? __pointer.parent[__pointer.key] : __pointer.parent),__layer[__key],__extensions, __extensions.stop))
+    {
+		Object.defineProperty(__layer, __key, descriptorHidden(undefined));
+		if(isIndex(__key)) __extensions.lengthSet.call(__layer, getLength(this), true);
+		
+		if(!__extensions.stop) _updateStandard(__layer, 'delete', __key, (__pointer.key ? __pointer.parent[__pointer.key ] : __pointer.parent),__layer[__key],__extensions);
+      
+        if(__extensions.pointers[__key].child) removeChildPointers(__extensions.pointers[__key].child, __key);
+      
+        __parentExtensions.pointers[__pointer.key].child = undefined;
+		__extensions.pointers[__key] = undefined;
+	}
+	return this;
   }
   
   function remove(key)
@@ -1195,35 +1262,31 @@ window.frytki = (function(){
     
     function recJSON(from, to)
     {
-      var __key,
-          __keys,
-          __len,
-          __x;
+      var key,
+          keys = Object.keys(from),
+          len = keys.length,
+          x = 0;
       
-      __keys = Object.keys(from);
-      __len = __keys.length;
-      __x = 0;
-      
-      for(__x;__x<__len;__x++)
+      for(x;x<len;x++)
       {
-        __key = __keys[__x];
-        if(__objectTypes.indexOf(__typeof(from[__key])) !== -1)
+        key = keys[x];
+        if(__objectTypes.indexOf(__typeof(from[key])) !== -1)
         {
-          __cacheIndex = __cache.indexOf(from[__key]);
+          __cacheIndex = __cache.indexOf(from[key]);
           if(__cacheIndex === -1)
           {
-            __cache.push(from[__key])
-            __cacheName.push(__key)
-            to[__key] = recJSON(from[__key],{});
+            __cache.push(from[key])
+            __cacheName.push(key)
+            to[key] = recJSON(from[key],{});
           }
           else
           {
-            to[__key] = '[Circular ' + __cacheName[__cacheIndex] + ' Object]'
+            to[key] = '[Circular ' + __cacheName[__cacheIndex] + ' Object]'
           }
         }
         else
         {
-          to[__key] = from[__key];
+          to[key] = from[key];
         }
       }
       
@@ -1581,6 +1644,7 @@ window.frytki = (function(){
     create:descriptorHidden(create),
     add:descriptorHidden(add),
     addPointer:descriptorHidden(addPointer),
+    removePointer:descriptorHidden(removePointer),
     move:descriptorHidden(move),
     copy:descriptorHidden(copy),
     merge:descriptorHidden(merge),

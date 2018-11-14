@@ -20,8 +20,9 @@ console.calculateTime = function(func,cycles)
 
 /* PERFS */
 var creationObjectPerf = new Benchmark.Suite('creationObject'),
-    creationJSONPerf = new Benchmark.Suite('creationJSON');
-
+    creationJSONPerf = new Benchmark.Suite('creationJSON'),
+    
+    CreateKonnektDT = KBWindow.CreateKonnektDT;
 
 var testObject = {
       test: 'help',
@@ -53,7 +54,7 @@ if(runTests)
   .on('cycle', function(event) {
     console.log(String(event.target),event);
   })
-  .on('complete', function(event) {
+  .on('complete', function() {
     console.log('*****Fastest is ' + this.filter('fastest')[0].toString() + '******');
   })
   // run async
