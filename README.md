@@ -212,7 +212,7 @@ How to contribute
 =================
 If You would like to contribute here are the steps
 
-1. Clone Repo: [Pikantny Github Repo](https://github.com/keleko34/pikantny)
+1. Clone Repo: [Frytki Github Repo](https://github.com/keleko34/frytki)
 2. Install any necessary dev dependencies
 3. build the project `npm run build`
 4. test your changes don't break anything `npm test`
