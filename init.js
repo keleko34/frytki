@@ -665,6 +665,11 @@ window.frytki = (function(){
   /* TYPE CHECKS */
   /* REGION */
   
+  function isObservable(v, p)
+  {
+    return (!!Object.getOwnPropertyDescriptor(v, p).set);
+  }
+  
   function isObject(v)
   {
     return (__typeof.call(this,v) === 'object');
@@ -1614,6 +1619,7 @@ window.frytki = (function(){
     stop:descriptorHidden(stop),
     typeof:descriptorHidden(__typeof),
     keys:descriptorHidden(__keys),
+    isObservable:descriptorHidden(isObservable),
     isObject:descriptorHidden(isObject),
     isArray:descriptorHidden(isArray),
     isJSON:descriptorHidden(isJSON),
@@ -1678,6 +1684,7 @@ window.frytki = (function(){
   Object.defineProperties(Frytki, {
     typeof:descriptorHidden(__typeof),
     keys:descriptorHidden(__keys),
+    isObservable:descriptorHidden(isObservable),
     isObject:descriptorHidden(isObject),
     isArray:descriptorHidden(isArray),
     isJSON:descriptorHidden(isJSON),
