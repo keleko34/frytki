@@ -1,6 +1,6 @@
 {
   "name": "frytki",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "For the love of fries",
   "main": "init.min.js",
   "scripts": {
