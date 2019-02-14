@@ -468,16 +468,6 @@ window.frytki = (function(){
     }
   }
   
-  function descriptorImmutable(value)
-  {
-    return {
-      value: value,
-      writable: false,
-      enumerable: true,
-      configurable: true
-    }
-  }
-  
   function descriptorStandard(key, value, extensions, initial)
   {
     extensions.descriptors[key] = {};
@@ -1573,7 +1563,7 @@ window.frytki = (function(){
     var __obj = (obj || {}),
         __hash = (hash || (Math.random() * Date.now()).toFixed(0)),
         /* this allows us to overwrite the length property on an array while otherwise it's non configurable */
-        __ref = {},
+        __ref = Object.create(Frytki.prototype),
         __childKeys = __keys(__obj),
         __base = (base || __ref),
         __parent = (parent || __base),
@@ -1589,7 +1579,6 @@ window.frytki = (function(){
       __frytkiExtensions__: descriptorHiddenSetter(new localBinders(__hash, __ref, __base, __scope, __parent, __lengthSet)),
       length: __lengthDescriptor
     });
-    __ref.__proto__ = Frytki.prototype;
     
     /* if nothing is passed it is an empty object */
     if(__obj && typeof __obj === 'object')
