@@ -2,7 +2,7 @@
   "name": "frytki",
   "version": "1.0.9",
   "description": "For the love of fries",
-  "main": "init.min.js",
+  "main": "frytki.min.js",
   "scripts": {
     "test": "node ./test/run.js",
     "build": "node ./build.js"

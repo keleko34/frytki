@@ -5,9 +5,9 @@ var base = process.cwd().replace(/\\/g,'/'),
 
 console.log("Building Library...");
 
-flags.jsCode = [{src: fs.readFileSync(base+'/init.js','utf8')}];
+flags.jsCode = [{src: fs.readFileSync(base+'/frytki.js','utf8')}];
 flags.compilationLevel = 'SIMPLE';
 
-fs.writeFileSync(base+'/init.min.js',closureCompiler(flags).compiledCode);
+fs.writeFileSync(base+'/frytki.min.js',closureCompiler(flags).compiledCode);
 
 console.log("Finished Building Minified Library..");
