@@ -37,7 +37,7 @@ Getting started
 The script can be loaded both in the head and in the body. 
 All functionality is automatically loaded as soon as the file is loaded.
 ```
- <script src="/(node_modules|bower_modules)/frytki/init.min.js"></script>
+ <script src="/(node_modules|bower_modules)/frytki/frytki.min.js"></script>
 ```
 
 To start using it is as simple as just passing data or json into the frytki method
