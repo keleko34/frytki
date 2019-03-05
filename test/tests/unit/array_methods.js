@@ -9,6 +9,19 @@ var arrayMethods = (function(){
       bypassBlocksEvents,
     ];
     
+    function copy(obj)
+    {
+      var __obj = {},
+          __keys = Object.keys(obj),
+          len = __keys.length,
+          x = 0;
+      for(x;x<len;x++)
+      {
+        __obj[__keys[x]] = obj[__keys[x]];
+      }
+      return __obj;
+    }
+    
     function runCategory(method, data)
     {
       var __arguments = Array.prototype.slice.call(arguments).slice(2);
@@ -34,8 +47,8 @@ var arrayMethods = (function(){
             retOriginal = original.apply(dt, args),
             retCustom = custom[method].apply(custom, args);
         if(typeof retOriginal === 'object') {
-          retCustom = JSON.stringify(Object.assign({}, retCustom))
-          retOriginal = JSON.stringify(Object.assign({}, retOriginal))
+          retCustom = JSON.stringify(copy(retCustom))
+          retOriginal = JSON.stringify(copy(retOriginal))
         }
         expect(retCustom).to.equal(retOriginal);
         done();
@@ -51,8 +64,8 @@ var arrayMethods = (function(){
         
             original.apply(dt, args);
             custom[method].apply(custom, args);
-        var outputOriginal = JSON.stringify(Object.assign({}, dt)),
-            outputCustom = JSON.stringify(Object.assign({}, custom));
+        var outputOriginal = JSON.stringify(copy(dt)),
+            outputCustom = JSON.stringify(copy(custom));
         expect(custom.length).to.equal(dt.length);
         expect(outputCustom).to.equal(outputOriginal);
         done();
@@ -113,8 +126,8 @@ var arrayMethods = (function(){
       runCategory('push', exampleDate.slice(), 100);
       runCategory('pop', exampleDate.slice());
       runCategory('reverse', exampleDate.slice());
-      runCategory('fill', exampleDate.slice(), 100, 0, 4);
-      runCategory('copyWithin', exampleDate.slice(), 0, 3, 5);
+      if(Array.prototype.fill) runCategory('fill', exampleDate.slice(), 100, 0, 4);
+      if(Array.prototype.copyWithin) runCategory('copyWithin', exampleDate.slice(), 0, 3, 5);
     });
   }
 }());

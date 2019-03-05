@@ -48,7 +48,8 @@ window.frytki = (function(){
         var __getKeys = Object.keys;
         
         return function(obj, type){
-          return __getKeys((obj || this))
+          var __obj = (((typeof obj === 'object' && obj) ? obj : this) || {})
+          return __getKeys(__obj)
           .filter(function(v){
             if(__blocked__.indexOf(v) !== -1) return false;
             if(!type) return true;
@@ -1677,8 +1678,8 @@ window.frytki = (function(){
     push:descriptorHidden(push),
     pop:descriptorHidden(pop),
     reverse:descriptorHidden(reverse),
-    fill:descriptorHidden(fill),
-    copyWithin:descriptorHidden(copyWithin)
+    fill:descriptorHidden((Array.prototype.fill ? fill : undefined)),
+    copyWithin: descriptorHidden((Array.prototype.copyWithin ? copyWithin : undefined))
   })
   
   Object.defineProperties(Frytki, {
