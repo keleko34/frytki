@@ -230,6 +230,9 @@ window.frytki = (function(){
       
       /* if stopImmediatePropogation method was called then we stop calling listeners on this node  */
       if(_e.__stopImmediatePropogation__) break;
+      
+      /* reset lenghth in case a listener removed one from the list */
+      _len = _looper.length;
     }
   }
   
@@ -252,6 +255,9 @@ window.frytki = (function(){
       
       /* stop bubbling if stopImmediatePropogation or stopPropogation is called */
       if(_e.__stopPropogation__ !== undefined) break;
+      
+      /* reset lenghth in case a listener removed one from the list */
+      _len = _looper.length;
     }
   }
   
