@@ -235,7 +235,7 @@ window.frytki = (function(){
       /* Reset length in case any listeners are removed from the list */
       if(_len !== _looper.length)
       {
-        _x = Math.max(_x - (_len - _looper.length), 0);
+        _x = Math.max(_x - (_len - _looper.length), -1);
         _len = _looper.length;
       }
     }
@@ -264,7 +264,7 @@ window.frytki = (function(){
       /* Reset length in case any listeners are removed from the list */
       if(_len !== _looper.length)
       {
-        _x = Math.max(_x - (_len - _looper.length), 0);
+        _x = Math.max(_x - (_len - _looper.length), -1);
         _len = _looper.length;
       }
     }
