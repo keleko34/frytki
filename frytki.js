@@ -505,6 +505,10 @@ window.frytki = (function(){
     function set(v)
     {
       __notDefined = (v === undefined);
+      if(typeof v === 'object' && v && __typeof(v) !== 'Frytki')
+      {
+        v = Frytki(v, __extensions.base, __extensions.scope + (!__extensions.scope.length ? '' : '.') + __key, this, __extensions.hash);
+      }
       /* Modify Section */
       if(__extensions.isModifying && __debounce) 
       {
@@ -963,8 +967,8 @@ window.frytki = (function(){
         __key = getKey(key),
         __extensions = __layer.__frytkiExtensions__,
         __isModifying = __extensions.isModifying;
-    
-    if(val && typeof val === 'object' && __typeof(val) !== 'Frytki')
+      
+    if(typeof val === 'object' && val && __typeof(val) !== 'Frytki')
     {
       val = Frytki(val, __extensions.base, __extensions.scope + (!__extensions.scope.length ? '' : '.') + __key, __layer, __extensions.hash);
     }
